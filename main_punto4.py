@@ -1,10 +1,13 @@
-from flask import Flask, render_template
-import sqlite3
-
-app=Flask(__name__)
+from asyncio.windows_events import NULL
+import random as rd
 import pandas as pd
+import time
+from datetime import datetime
+# current date and time
+now = datetime.now()
+
 class RecoleccionRes:
-    def __init__(self, direccion, habitantes,diaRecoleccion,jornada,kilosReciclable,kilosNoReciclables,sancion,timeStamp):
+    def __init__(self, direccion, habitantes,diaRecoleccion,jornada,kilosReciclable,kilosNoReciclables,sancion):
         if(isinstance(direccion, str) and isinstance(habitantes, int) and isinstance(diaRecoleccion, int) and isinstance(jornada, str) and isinstance(kilosReciclable, int) and isinstance(kilosNoReciclables, int) and isinstance(sancion, str)):    
             self.direccion = direccion
             self.habitantes = habitantes
@@ -13,18 +16,9 @@ class RecoleccionRes:
             self.kilosReciclable=kilosReciclable
             self.kilosNoReciclable=kilosNoReciclables
             self.sancion=sancion
-            self.timeStamp=timeStamp
             print("he sido creado")
         else:
             print("Uno de los atributos está mal")
-    def setTimeStamp(self,timeStamp):
-        if(isinstance(timeStamp, str)):
-            self.timeStamp=timeStamp
-            self.cambio()
-        else:
-            print("Debe ser un conjunto de caracteres")
-    def getTimeStamp(self):
-        return self.timeStamp
     def setDireccion(self,direccion):
         if(isinstance(direccion, str)):
             self.direccion=direccion
@@ -93,8 +87,37 @@ class RecoleccionRes:
         return self.kilosNoReciclable+self.kilosReciclable
     def mostrarContenido(self):
         print(self.direccion+" "+str(self.habitantes)+"   "+str(self.diaRecoleccion)+"   "+self.jornada+"   "+str(self.kilosReciclable)+"  "+str(self.kilosNoReciclable)+"  "+self.sancion+" "+str(self.calcularTotal()))
-    def datos(self):
-        return [self.timeStamp,self.direccion,self.habitantes,self.diaRecoleccion,self.jornada,self.kilosReciclable,self.kilosNoReciclable,self.sancion]
+def generarDireccion():
+    vectorCadena1=["CL","CR","DG","TV"]
+    c1=vectorCadena1[rd.randint(0,3)]
+    c2=""
+    c2_aux=rd.randint(1,95)
+    if(c2_aux<10):
+        c2="0"+str(c2_aux)
+    else:
+        c2=str(c2_aux)
+    c3=""
+    c3_aux=rd.randint(1,95)
+    if(c3_aux<10):
+        c3="0"+str(c3_aux)
+    else:
+        c3=str(c3_aux)
+    c4=""
+    c4_aux=rd.randint(1,95)
+    if(c4_aux<10):
+        c4="0"+str(c4_aux)
+    else:
+        c4=str(c4_aux)
+    direccion=c1+" "+c2+" "+c3+"-"+c4
+    return direccion
+def generarJornada():
+    vectorCadena1=["M","T","N"]
+    return vectorCadena1[rd.randint(0,2)]
+def generarSancion():
+    vectorCadena1=["NN","SS","PP"]
+    return vectorCadena1[rd.randint(0,2)]
+def calcularSancion(kr,knr):
+    return 60000*(kr+knr)
 def calcularPromedioPorDia(datos,dia):
     acum=0
     for i in datos:
@@ -105,63 +128,46 @@ def calcularPromedioPorJornada(datos,dia):
     for i in datos:
         acum+=i[dia]
     return acum/len(datos)
-def leerCsv():
-    conn = sqlite3.connect('database.db')
+def generarRegistros():
     registros=[]
-    bDias=[]
-    bJornada=[]
-    bTotal=0
-    df=pd.read_csv("Datos.csv",delimiter=';')
-    print(df.iloc[0]["Direccion"])
-    for i in range(0,len(df)):
-        #consulta="INSERT INTO informacion (Direccion,NumHabitantes,DiaJornada,KilosReciclable,KilosOrganica,Sancion,tipoDireccion) \
-      #VALUES ("+df.iloc[i]["Direccion"]+","+str(df.iloc[i]["Habitantes"])+","+str(df.iloc[i]["diaRecoleccion"])+str(df.iloc[i]["Jornada"])+","+str(df.iloc[i]["KilosReciclable"])+","+str(df.iloc[i]["KilosNoReciclables"])+","+df.iloc[i]["sancion"]+","+df.iloc[i]["Direccion"][0:2]+");"
-        #print(consulta)
-        #conn.execute(consulta)
-        #conn.commit()
-        registros.append(RecoleccionRes(str(df.iloc[i]["Direccion"]),int(df.iloc[i]["Habitantes"]),int(df.iloc[i]["diaRecoleccion"]),str(df.iloc[i]["Jornada"]),int(df.iloc[i]["KilosReciclable"]),int(df.iloc[i]["KilosNoReciclables"]),str(df.iloc[i]["sancion"]),str(df.iloc[i]["timestap"])))
-        rc=df.iloc[i]["diaRecoleccion"]
-        kr=df.iloc[i]["KilosReciclable"]
-        knr=df.iloc[i]["KilosNoReciclables"]
-        bTotal+=kr+knr
-        jo=df.iloc[i]["Jornada"]
-        if(rc==1):
-            bDias.append([kr+knr,0,0,0,0,0,0])
-        elif(rc==2):
-            bDias.append([0,kr+knr,0,0,0,0,0])
-        elif(rc==3):
-            bDias.append([0,0,kr+knr,0,0,0,0])
-        elif(rc==4):
-            bDias.append([0,0,0,kr+knr,0,0,0])
-        elif(rc==5):
-            bDias.append([0,0,0,0,kr+knr,0,0])
-        elif(rc==6):
-            bDias.append([0,0,0,0,0,kr+knr,0])
-        elif(rc==7):
-            bDias.append([0,0,0,0,0,0,kr+knr])
-            
-        if(jo=="M"):
-            bJornada.append([kr+knr,0,0])
-        elif(jo=="T"):
-            bJornada.append([0,kr+knr,0])
-        elif(jo=="N"):
-            bJornada.append([0,0,kr+knr])
-    return [registros,[calcularPromedioPorDia(bDias,0),calcularPromedioPorDia(bDias,1),calcularPromedioPorDia(bDias,2),calcularPromedioPorDia(bDias,3),calcularPromedioPorDia(bDias,4),calcularPromedioPorDia(bDias,5),calcularPromedioPorDia(bDias,6)],[calcularPromedioPorJornada(bJornada,0),calcularPromedioPorJornada(bJornada,1),calcularPromedioPorJornada(bJornada,2)],bTotal/len(df)]
+    df = pd.DataFrame()
+    for i in range(0,rd.randint(150,200)):
+        registros.append(RecoleccionRes(generarDireccion(),rd.randint(1,7),rd.randint(1,7),generarJornada(),rd.randint(0,100),rd.randint(0,100),generarSancion()))
+        if(i<10):
+            c="00"+str(i)
+        elif(i<100):
+            c="0"+str(i)
+        else:
+            c=str(i)
+        fila={'Direccion':registros[i].getDireccion(),'Habitantes':registros[i].getHabitantes(),'diaRecoleccion':registros[i].getDiaRecoleccion(),'Jornada':registros[i].getJornada(),'KilosReciclable':registros[i].getKilosReciclable(),'KilosNoReciclables':registros[i].getKilosNoReciclables(),'sancion':registros[i].getSancion(),'timestap':c+now.strftime("%Y%m%d%H%M")}
+        df = df.append(fila, ignore_index=True)
+    df.to_json("Datos.json",orient='records')
+    df.to_csv("Datos.csv",index=False,sep=';')
+    return registros
 
+
+registros=generarRegistros()
 def myFunc(e):
   return e.getKilosNoReciclables()+e.getKilosReciclable()
 
-@app.route("/")
-def home():
-    [registros,promedioDia,promedioJornada,promedioUser]=leerCsv()
-    registros.sort(reverse=True,key=myFunc)
-    listaMayor=[registros[0].datos(),registros[1].datos(),registros[2].datos(),registros[3].datos()]
-    return render_template("index.html",ListaMayor=listaMayor)
+registros.sort(reverse=True,key=myFunc)
+print("Registros con mayor consumo")
+print("Dir         Hab Dia Jor Rec NoR San")
+registros[0].mostrarContenido()
+registros[1].mostrarContenido()
+registros[2].mostrarContenido()
+registros[3].mostrarContenido()
+print("Registros medios")
+print("Dir         Hab Dia Jor Rec NoR San")
+registros[int(len(registros)/2)-2].mostrarContenido()
+registros[int(len(registros)/2)-1].mostrarContenido()
+registros[int(len(registros)/2)].mostrarContenido()
+registros[int(len(registros)/2)+1].mostrarContenido()
 
-@app.route("/about")
-def ayuda():
-    return render_template("about.html")
-if __name__=="__main__":
-    app.run(debug=True)
-    
-    
+
+print("Registros con menor consumo")
+print("Dir         Hab Dia Jor Rec NoR San")
+registros[len(registros)-4].mostrarContenido()
+registros[len(registros)-3].mostrarContenido()
+registros[len(registros)-2].mostrarContenido()
+registros[len(registros)-1].mostrarContenido()
